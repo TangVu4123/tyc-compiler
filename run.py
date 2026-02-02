@@ -86,10 +86,39 @@ class TyCBuilder:
 
         self.colors = Colors()
 
-        # Platform-specific paths
+        # Platform-specific paths (resolve actual venv layout)
+        # On Windows, venvs normally have a Scripts/ folder, but sometimes (MSYS/Git Bash)
+        # the environment uses a POSIX-like layout with bin/. Check both and prefer the
+        # concrete executable (python.exe) when available.
         if platform.system() == "Windows":
-            self.venv_python3 = self.venv_dir / "Scripts" / "python.exe"
-            self.venv_pip = self.venv_dir / "Scripts" / "pip.exe"
+            scripts_py = self.venv_dir / "Scripts" / "python.exe"
+            scripts_py_alt = self.venv_dir / "Scripts" / "python"
+            scripts_pip = self.venv_dir / "Scripts" / "pip.exe"
+            scripts_pip_alt = self.venv_dir / "Scripts" / "pip"
+
+            bin_py_exe = self.venv_dir / "bin" / "python.exe"
+            bin_py = self.venv_dir / "bin" / "python"
+            bin_pip_exe = self.venv_dir / "bin" / "pip.exe"
+            bin_pip = self.venv_dir / "bin" / "pip"
+
+            if scripts_py.exists() or scripts_py_alt.exists():
+                self.venv_python3 = scripts_py if scripts_py.exists() else scripts_py_alt
+                self.venv_pip = (
+                    scripts_pip
+                    if scripts_pip.exists()
+                    else (scripts_pip_alt if scripts_pip_alt.exists() else None)
+                )
+            elif bin_py_exe.exists() or bin_py.exists():
+                self.venv_python3 = bin_py_exe if bin_py_exe.exists() else bin_py
+                self.venv_pip = (
+                    bin_pip_exe
+                    if bin_pip_exe.exists()
+                    else (bin_pip if bin_pip.exists() else None)
+                )
+            else:
+                # No identifiable venv executables; leave as None and fall back to system python
+                self.venv_python3 = None
+                self.venv_pip = None
         else:
             self.venv_python3 = self.venv_dir / "bin" / "python"
             self.venv_pip = self.venv_dir / "bin" / "pip"
@@ -301,11 +330,23 @@ class TyCBuilder:
 
         # Upgrade pip
         print(self.colors.yellow("Upgrading pip in virtual environment..."))
-        self.run_command([str(self.venv_pip), "install", "--upgrade", "pip"])
+        # Prefer invoking pip via the venv python to avoid relying on the pip executable path
+        if self.venv_python3 and Path(self.venv_python3).exists():
+            self.run_command([str(self.venv_python3), "-m", "pip", "install", "--upgrade", "pip"])
+        elif self.venv_pip and Path(self.venv_pip).exists():
+            self.run_command([str(self.venv_pip), "install", "--upgrade", "pip"])
+        else:
+            # Fallback to system python pip
+            self.run_command([sys.executable, "-m", "pip", "install", "--upgrade", "pip"])
 
         # Install dependencies
         print(self.colors.yellow("Installing Python dependencies..."))
-        self.run_command([str(self.venv_pip), "install", "-r", "requirements.txt"])
+        if self.venv_python3 and Path(self.venv_python3).exists():
+            self.run_command([str(self.venv_python3), "-m", "pip", "install", "-r", "requirements.txt"])
+        elif self.venv_pip and Path(self.venv_pip).exists():
+            self.run_command([str(self.venv_pip), "install", "-r", "requirements.txt"])
+        else:
+            self.run_command([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"])
 
         print(self.colors.green("Setup completed!"))
 
