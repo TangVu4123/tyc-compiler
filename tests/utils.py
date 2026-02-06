@@ -58,25 +58,21 @@ class Tokenizer:
         self.source_code = source_code
 
     def get_tokens_as_string(self) -> str:
-        """Get tokens as comma-separated string (only token text)"""
+        """Get tokens as comma-separated string (only token text).
+        
+        Raises exceptions from the lexer (e.g., ErrorToken, UncloseString, IllegalEscape)
+        to allow tests to verify error handling behavior.
+        """
         input_stream = InputStream(self.source_code)
         lexer = TyCLexer(input_stream)
 
         tokens = []
-        try:
-            while True:
-                token = lexer.nextToken()
-                if token.type == -1:  # EOF
-                    tokens.append("<EOF>")
-                    break
-                tokens.append(token.text if token.text else "")
-        except Exception as e:
-            # If we already have some tokens, append error message
-            if tokens:
-                tokens.append(str(e))
-            else:
-                # If no tokens yet, just return error message
-                return str(e)
+        while True:
+            token = lexer.nextToken()
+            if token.type == -1:  # EOF
+                tokens.append("<EOF>")
+                break
+            tokens.append(token.text if token.text else "")
 
         return ",".join(tokens)
 
