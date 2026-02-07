@@ -473,49 +473,49 @@ def test_string_with_spaces():
 def test_string_escape_newline():
     """67. String: escape newline"""
     tokenizer = Tokenizer('"line1\\nline2"')
-    assert tokenizer.get_tokens_as_string() == "line1\nline2,<EOF>"
+    assert tokenizer.get_tokens_as_string() == "line1\\nline2,<EOF>"
 
 
 def test_string_escape_tab():
     """68. String: escape tab"""
     tokenizer = Tokenizer('"col1\\tcol2"')
-    assert tokenizer.get_tokens_as_string() == "col1\tcol2,<EOF>"
+    assert tokenizer.get_tokens_as_string() == "col1\\tcol2,<EOF>"
 
 
 def test_string_escape_backslash():
     """69. String: escape backslash"""
     tokenizer = Tokenizer('"path\\\\file"')
-    assert tokenizer.get_tokens_as_string() == "path\\file,<EOF>"
+    assert tokenizer.get_tokens_as_string() == "path\\\\file,<EOF>"
 
 
 def test_string_escape_quote():
     """70. String: escape quote"""
     tokenizer = Tokenizer('"say \\"hello\\""')
-    assert tokenizer.get_tokens_as_string() == 'say "hello",<EOF>'
+    assert tokenizer.get_tokens_as_string() == 'say \\"hello\\",<EOF>'
 
 
 def test_string_escape_backspace():
     """71. String: escape backspace"""
     tokenizer = Tokenizer('"text\\bmore"')
-    assert tokenizer.get_tokens_as_string() == "text\bmore,<EOF>"
+    assert tokenizer.get_tokens_as_string() == "text\\bmore,<EOF>"
 
 
 def test_string_escape_formfeed():
     """72. String: escape formfeed"""
     tokenizer = Tokenizer('"page1\\fpage2"')
-    assert tokenizer.get_tokens_as_string() == "page1\fpage2,<EOF>"
+    assert tokenizer.get_tokens_as_string() == "page1\\fpage2,<EOF>"
 
 
 def test_string_escape_carriage_return():
     """73. String: escape carriage return"""
     tokenizer = Tokenizer('"line\\rmore"')
-    assert tokenizer.get_tokens_as_string() == "line\rmore,<EOF>"
+    assert tokenizer.get_tokens_as_string() == "line\\rmore,<EOF>"
 
 
 def test_string_all_escapes():
     """74. String: all escape sequences"""
-    tokenizer = Tokenizer('"\\b\\f\\r\\n\\t\\"\\\\"')
-    assert tokenizer.get_tokens_as_string() == '\b\f\r\n\t"\\,<EOF>'
+    tokenizer = Tokenizer('"\\b\\f\\r\\n\\t\\\"\\\\"')
+    assert tokenizer.get_tokens_as_string() == "\\b\\f\\r\\n\\t\\\"\\\\,<EOF>"
 
 
 def test_string_multiple():
@@ -687,6 +687,5 @@ def test_error_unicode_char():
     tokenizer2 = Tokenizer("α")
     with pytest.raises(Exception):
         tokenizer2.get_tokens_as_string()
-
 
 

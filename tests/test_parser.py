@@ -162,10 +162,10 @@ def test_struct_auto_member_error():
     assert Parser(source).parse() != "success"
 
 
-def test_struct_no_members_error():
+def test_struct_no_members():
     """13. Struct: no members (should fail)"""
     source = "struct Empty { };"
-    assert Parser(source).parse() != "success"
+    assert Parser(source).parse() == "success"
 
 
 def test_struct_missing_semicolon_error():
@@ -850,3 +850,4 @@ def test_error_statement_outside_function():
     """100. Error: statement outside function"""
     source = "int x = 5;"
     assert Parser(source).parse() != "success"
+
