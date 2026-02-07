@@ -27,7 +27,7 @@ options{
 // TODO: Define grammar rules here
 program: (structDecl | funcDecl)* EOF;
 
-structDecl: STRUCT ID LB structMember+ RB SEMI;
+structDecl: STRUCT ID LB structMember* RB SEMI;
 structMember: type ID SEMI;
 
 funcDecl: (returnType | ) ID LP paramList? RP block;
@@ -56,7 +56,7 @@ whileStmt: WHILE LP expr RP stmt ;
 
 forStmt: FOR LP (varDeclStmt | exprStmt | SEMI) expr? SEMI expr? RP stmt ;
 
-switchStmt: SWITCH LP expr RP LB caseClause* defaultClause? RB;
+switchStmt: SWITCH LP expr RP LB (caseClause | defaultClause)* RB;
 caseClause: CASE expr COLON stmt*;
 defaultClause: DEFAULT COLON stmt*;
 
@@ -174,13 +174,13 @@ fragment STR_CHAR: ~["\r\n\\] | ESC_SEQ ;
 
 ILLEGAL_ESCAPE: '"' (STR_CHAR)* '\\' ~[bfrnt"\\\r\n]
               {
-                  text = self.text
+                  text = str(self.text)
                   self.text = text[1:]  
               };
 
 UNCLOSE_STRING: '"' (STR_CHAR)* (EOF | '\r' | '\n')
               {
-                txt = self.text[1:]
+                txt = (self.text[1:])
                 if( len(txt) > 0 and (txt[-1] == '\r' or txt[-1] == '\n')):
                   self.text = txt[:-1]
               }
@@ -188,33 +188,8 @@ UNCLOSE_STRING: '"' (STR_CHAR)* (EOF | '\r' | '\n')
 
 STRINGLIT: '"' STR_CHAR* '"'
          {
-             text = self.text
-             # Remove quotes
-             text = text[1:-1]
-             result = ''
-             i = 0
-             while i < len(text):
-                 if text[i] == '\\' and i + 1 < len(text):
-                     next_char = text[i+1]
-                     if next_char == 'b':
-                         result += '\b'
-                     elif next_char == 'f':
-                         result += '\f'
-                     elif next_char == 'r':
-                         result += '\r'
-                     elif next_char == 'n':
-                         result += '\n'
-                     elif next_char == 't':
-                         result += '\t'
-                     elif next_char == '"':
-                         result += '"'
-                     elif next_char == '\\':
-                         result += '\\'
-                     i += 2
-                 else:
-                     result += text[i]
-                     i += 1
-             self.text = result
+             text = str(self.text)
+             self.text = text[1:-1]
          };
 
 BLOCK_COMMENT: '/*' .*? '*/' -> skip;  //Dấu ? là để lưu ý dừng lại ngay lập tức khi gặp dấu hiệu dừng lại gần nhất
