@@ -7,106 +7,114 @@ from lexererr import *
 @lexer::members {
 def emit(self):
     tk = self.type
-    if tk == self.UNCLOSE_STRING:       
-        result = super().emit();
-        raise UncloseString(result.text);
+    if tk == self.STRING_LIT:
+        # Get the original text (e.g., '"hello"')
+        original_text = self.text
+        # Strip the first and last characters (the quotes)
+        self.text = original_text[1:-1]
+        return super().emit()
+        
+    elif tk == self.UNCLOSE_STRING:       
+        result = super().emit()
+        # Lexeme does not include opening quote 
+        raise UncloseString(result.text[1:])
+        
     elif tk == self.ILLEGAL_ESCAPE:
-        result = super().emit();
-        raise IllegalEscape(result.text);
+        result = super().emit()
+        # Wrong string is from beginning without opening quote 
+        raise IllegalEscape(result.text[1:])
+        
     elif tk == self.ERROR_CHAR:
-        result = super().emit();
-        raise ErrorToken(result.text); 
+        result = super().emit()
+        raise ErrorToken(result.text)
+        
     else:
-        return super().emit();
+        return super().emit()
 }
 
-options{
-	language=Python3;
+options {
+    language = Python3;
 }
 
-// TODO: Define grammar rules here
-program: (structDecl | funcDecl)* EOF;
+// --- PARSER RULES ---
 
-structDecl: STRUCT ID LB structMember* RB SEMI;
-structMember: type ID SEMI;
+// Comments & WS 
+BLOCK_COMMENT: '/*' .*? '*/' -> skip;
+LINE_COMMENT: '//' ~[\r\n]* -> skip;
 
-funcDecl: (returnType | ) ID LP paramList? RP block;
-returnType: VOID | type;
-paramList: param (COMMA param)*;
-param: type ID;
-block: LB stmt* RB;
-stmt
-    : block
-    | varDeclStmt
-    | ifStmt
-    | whileStmt
-    | forStmt
-    | switchStmt
-    | breakStmt
-    | continueStmt
-    | returnStmt
-    | exprStmt
-;
+program: (funcDecl| structDecl)* EOF; 
 
-varDeclStmt: (AUTO | type) ID (ASSIGN expr)? SEMI;
+// Declarations
+structDecl: STRUCT ID LB structMember* RB SEMI; 
+structMember: type ID SEMI; 
 
-ifStmt: IF LP expr RP  stmt (ELSE  stmt )?; // Lưu ý {} ở statement
+funcDecl: (type | VOID)? ID LP paramList? RP block; 
 
-whileStmt: WHILE LP expr RP stmt ;
+paramList: param (COMMA param)*; 
+param: type ID; 
 
-forStmt: FOR LP (varDeclStmt | exprStmt | SEMI) expr? SEMI expr? RP stmt ;
+// Statements
+statement: varDecl 
+         | block 
+         | ifStmt 
+         | whileStmt 
+         | forStmt 
+         | switchStmt 
+         | breakStmt 
+         | continueStmt 
+         | returnStmt 
+         | exprStmt; 
 
-switchStmt: SWITCH LP expr RP LB (caseClause | defaultClause)* RB;
-caseClause: CASE expr COLON stmt*;
-defaultClause: DEFAULT COLON stmt*;
+varDecl: (AUTO | type) ID (ASSIGN expr)? SEMI; 
 
-breakStmt: BREAK SEMI;
+block: LB (varDecl | statement)* RB; 
 
-continueStmt: CONTINUE SEMI;
+ifStmt: IF LP expr RP statement (ELSE statement)?; 
 
-returnStmt: RETURN expr? SEMI;
+whileStmt: WHILE LP expr RP statement; 
 
-exprStmt: expr? SEMI;
+forStmt: FOR LP (varDecl | exprStmt | SEMI) (expr? SEMI) expr? RP statement; 
 
+switchStmt: SWITCH LP expr RP LB (caseStmt | defaultStmt)* RB; 
+caseStmt: CASE expr COLON (varDecl | statement)*; 
+defaultStmt: DEFAULT COLON (varDecl | statement)*; 
 
-// Expressions with precedence and associativity
-expr: expr1 (ASSIGN expr1)*;  // Right associative
+breakStmt: BREAK SEMI; 
+continueStmt: CONTINUE SEMI; 
+returnStmt: RETURN expr? SEMI; 
+exprStmt: expr SEMI; 
 
-expr1: expr2 (OR expr2)*;  // Left associative
+// Types
+type: INT | FLOAT | STRING | ID; 
 
-expr2: expr3 (AND expr3)*;  // Left associative
+// Expressions (Precedence: Highest to Lowest) 
+expr: primary                                   #primaryExpr
+    | expr DOT ID                               #memberAccess
+    | expr (INC | DEC | LP argList? RP) #postfixExpr
+    | (NOT | SUB | ADD | INC | DEC) expr        #unaryExpr
+    | expr (MUL | DIV | MOD) expr               #binaryExpr
+    | expr (ADD | SUB) expr                     #binaryExpr
+    | expr (LT | LTE | GT | GTE) expr           #binaryExpr
+    | expr (EQ | NEQ) expr                      #binaryExpr
+    | expr AND expr                             #binaryExpr
+    | expr OR expr                              #binaryExpr
+    | <assoc=right> expr ASSIGN expr            #assignExpr
+    ;
 
-expr3: expr4 ((EQ | NEQ) expr4)*;  // Left associative
+argList: expr (COMMA expr)*; 
 
-expr4: expr5 ((LT | LE | GT | GE) expr5)*;  // Left associative
+primary: ID 
+       | INT_LIT 
+       | FLOAT_LIT 
+       | STRING_LIT 
+       | structLiteral 
+       | LP expr RP; 
 
-expr5: expr6 ((PLUS | MINUS) expr6)*;  // Left associative
+structLiteral: LB argList? RB; 
 
-expr6: expr7 ((STAR | SLASH | PERCENT) expr7)*;  // Left associative
+// --- LEXER RULES ---
 
-expr7: expr8 (DOT ID)*;  // Left associative - member access
-
-expr8: (NOT | MINUS | PLUS | INCR | DECR) expr8  // Right associative - unary/prefix
-     | expr9;
-
-expr9: expr10 (INCR | DECR)?;  // Postfix
-
-expr10: INTLIT
-      | FLOATLIT
-      | STRINGLIT
-      | ID (LP argList? RP)?  // ID or function call
-      | LP expr RP
-      | LB exprList? RB  // Struct initialization
-      ;
-
-argList: expr (COMMA expr)*;
-
-exprList: expr (COMMA expr)*;
-
-type: INT | FLOAT | STRING | ID;
-
-
-// Keywords
+// Keywords 
 AUTO: 'auto';
 BREAK: 'break';
 CASE: 'case';
@@ -124,27 +132,27 @@ SWITCH: 'switch';
 VOID: 'void';
 WHILE: 'while';
 
-// Operators
-PLUS: '+';
-MINUS: '-';
-STAR: '*';
-SLASH: '/';
-PERCENT: '%';
+// Operators & Separators 
+ADD: '+';
+SUB: '-';
+MUL: '*';
+DIV: '/';
+MOD: '%';
 EQ: '==';
 NEQ: '!=';
 LT: '<';
 GT: '>';
-LE: '<=';
-GE: '>=';
+LTE: '<=';
+GTE: '>=';
 OR: '||';
 AND: '&&';
 NOT: '!';
-INCR: '++';
-DECR: '--';
+INC: '++';
+DEC: '--';
 ASSIGN: '=';
 DOT: '.';
 
-// Separators
+//Separators
 LB: '{';
 RB: '}';
 LP: '(';
@@ -153,48 +161,23 @@ SEMI: ';';
 COMMA: ',';
 COLON: ':';
 
-ID: [a-zA-Z_][a-zA-Z0-9_]*;
+// Literals 
+INT_LIT: [0-9]+; 
 
-fragment DIGITS: [0-9]+;
+FLOAT_LIT: ([0-9]+ '.' [0-9]* EXP? | '.' [0-9]+ EXP? | [0-9]+ EXP); 
+fragment EXP: [eE] [+-]? [0-9]+;
 
-fragment EXPONENT: [eE] [+-]? DIGITS;
+// Valid String
+STRING_LIT: '"' ( ESC | ~["\\\r\n] )* '"'; 
+fragment ESC: '\\' [bfrtn"\\/]; // Removed the backslash before /
 
-INTLIT:  DIGITS;
-
-FLOATLIT
-        : DIGITS '.' DIGITS? EXPONENT?
-        | '.' DIGITS EXPONENT?
-        | DIGITS EXPONENT?
-        ;
-
-fragment ESC_SEQ: '\\' [bfrnt"\\];
-
-fragment STR_CHAR: ~["\r\n\\] | ESC_SEQ ;
+ID: [a-zA-Z_] [a-zA-Z_0-9]*; 
 
 
-ILLEGAL_ESCAPE: '"' (STR_CHAR)* '\\' ~[bfrnt"\\\r\n]
-              {
-                  text = str(self.text)
-                  self.text = text[1:]  
-              };
+// Error Handling Requirements [cite: 1, 2]
+ILLEGAL_ESCAPE: '"' ( ESC | ~["\\\r\n] )* '\\' ~[bfrtn"\\/]; // Removed the backslash before /
+UNCLOSE_STRING: '"' ( ESC | ~["\\\r\n] )*;
 
-UNCLOSE_STRING: '"' (STR_CHAR)* (EOF | '\r' | '\n')
-              {
-                txt = (self.text[1:])
-                if( len(txt) > 0 and (txt[-1] == '\r' or txt[-1] == '\n')):
-                  self.text = txt[:-1]
-              }
-;
-
-STRINGLIT: '"' STR_CHAR* '"'
-         {
-             text = str(self.text)
-             self.text = text[1:-1]
-         };
-
-BLOCK_COMMENT: '/*' .*? '*/' -> skip;  //Dấu ? là để lưu ý dừng lại ngay lập tức khi gặp dấu hiệu dừng lại gần nhất
-LINE_COMMENT: '//' ~[\r\n]* -> skip;
-
-WS : [ \t\r\n]+ -> skip ; 
+WS : [ \t\r\n\f]+ -> skip;
 
 ERROR_CHAR: .;
